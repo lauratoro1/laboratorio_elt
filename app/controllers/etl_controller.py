@@ -24,5 +24,19 @@ async def debug_reset():
             "type": str(type(e))
         }
 
+@router.post("/extract", response_model=ExtraerResponse, status_code=status.HTTP_201_CREATED)
+async def extract_data(request: ExtraerRequest):
+    if request.cantidad <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    
+    registros = etl_service.extract_and_save_raw(request.cantidad)
+    
+    return ExtraerResponse(
+        mensaje="Data extracted successfully",
+        registros_guardados=registros,
+        fuente="Rick & Morty API",
+        status=201
+    )
+    
 
 
