@@ -49,3 +49,14 @@ async def transform_and_load():
         status=200
     )
 
+@router.delete("/reset", response_model=ResetResponse)
+async def reset_system():
+    resultado = etl_service.reset_system()
+    
+    return ResetResponse(
+        mensaje="System reset successfully",
+        mongo_docs_eliminados=resultado["mongo_docs_eliminados"],
+        mysql_rows_eliminados=resultado["mysql_rows_eliminados"],
+        status=200
+    )
+
