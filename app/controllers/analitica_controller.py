@@ -35,3 +35,8 @@ async def get_summary_statistics():
 async def get_status_analysis():
     """Get analysis by status"""
     return analitica_service.get_analysis_by_status()
+
+@router.get("/analytics/species")
+async def get_species_analysis(limit: int = 10):
+    """Get analysis by species"""
+    return analitica_service.get_analysis_by_species(limit)
