@@ -155,3 +155,39 @@ async def log_requests(request: Request, call_next):
     response.headers["X-Service-Version"] = app.version
     
     return response
+
+# =================== EXCEPTION HANDLERS ===================
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Handler for HTTP exceptions (400, 404, etc.)"""
+    logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail} - Path: {request.url.path}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "status_code": exc.status_code,
+            "path": request.url.path,
+            "method": request.method
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global handler for unhandled exceptions."""
+    logger.critical(f"Unhandled exception: {type(exc).__name__} - {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "Internal server error",
+            "message": str(exc) if app.debug else "An unexpected error occurred. Please contact support.",
+            "path": request.url.path,
+            "method": request.method
+        }
+    )
+
+
+# =================== ROUTERS ===================
+app.include_router(etl_controller.router)
+app.include_router(analitica_controller.router)
