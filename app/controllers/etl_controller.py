@@ -38,5 +38,14 @@ async def extract_data(request: ExtraerRequest):
         status=201
     )
     
-
+@router.post("/transform", response_model=TransformarResponse)
+async def transform_and_load():
+    registros = etl_service.transform_and_load()
+    
+    return TransformarResponse(
+        mensaje="Pipeline completed",
+        registros_procesados=registros,
+        tabla_destino="personajes_master",
+        status=200
+    )
 
