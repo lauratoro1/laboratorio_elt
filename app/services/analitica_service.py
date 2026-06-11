@@ -164,3 +164,47 @@ def analyze_column(column: str) -> dict:
         "most_common": most_common,
         "nulls": nulls
     }
+def get_dual_profile(character_id: int) -> dict:
+    """
+    Returns the same record from MongoDB and MySQL.
+    Aligned PK: _id in Mongo = id_personaje in MySQL.
+    
+    Handles 3 cases:
+    1. Record in both databases -> 200 OK with both views
+    2. Record in only one database -> 200 OK with warning
+    3. Record in neither -> None (404)
+    """
+    result = {
+        "id": character_id,
+        "mongo_view": None,
+        "sql_view": None,
+        "warning": None
+    }
+    
+    # 1. Query MongoDB (using _id = character_id)
+    mongo_doc = mongo_collection.find_one({"_id": character_id})
+    if mongo_doc:
+        if "_id" in mongo_doc:
+            mongo_doc["_id"] = mongo_doc["_id"]
+        result["mongo_view"] = mongo_doc
+    
+    # 2. Query MySQL
+    with mysql_engine.connect() as conn:
+        query = text(f"""
+            SELECT * FROM {PersonajeDB.__tablename__} 
+            WHERE id_personaje = :id
+        """)
+        db_result = conn.execute(query, {"id": character_id})
+        row = db_result.fetchone()
+        if row:
+            result["sql_view"] = dict(row._mapping)
+    
+    # 3. Determine warning if inconsistency
+    if result["mongo_view"] and not result["sql_view"]:
+        result["warning"] = "Record exists in MongoDB but not in MySQL. Possibly /transform has not been executed or the record failed transformation."
+    elif not result["mongo_view"] and result["sql_view"]:
+        result["warning"] = "Record exists in MySQL but not in MongoDB. Inconsistency in the pipeline."
+    elif not result["mongo_view"] and not result["sql_view"]:
+        return None
+    
+    return result
