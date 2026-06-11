@@ -172,3 +172,23 @@ def _load_to_mysql_idempotent(df: pd.DataFrame) -> int:
         conn.commit()
     
     return records
+
+def reset_system() -> dict:
+    """Cleans MongoDB and MySQL using TRUNCATE."""
+    # Clean MongoDB
+    mongo_docs = mongo_collection.count_documents({})
+    mongo_collection.delete_many({})
+    
+    # Clean MySQL with TRUNCATE
+    mysql_rows = 0
+    with mysql_engine.connect() as conn:
+        conn.execute(text(f"TRUNCATE TABLE {PersonajeDB.__tablename__}"))
+        conn.commit()
+        
+        result = conn.execute(text(f"SELECT COUNT(*) FROM {PersonajeDB.__tablename__}"))
+        mysql_rows = result.scalar()
+    
+    return {
+        "mongo_docs_eliminados": mongo_docs,
+        "mysql_rows_eliminados": mysql_rows
+    }
