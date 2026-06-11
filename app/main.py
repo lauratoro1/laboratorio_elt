@@ -95,3 +95,63 @@ async def lifespan(app: FastAPI):
     logger.info("Closing database connections...")
     mysql_engine.dispose()
     logger.info("Shutdown complete.")
+
+# =================== FASTAPI APPLICATION ===================
+app = FastAPI(
+    title="ETL Lab - Rick & Morty API",
+    description="""
+    ETL Pipeline with FastAPI, MongoDB and MySQL
+
+    Implemented Features:
+    - Idempotent extraction from Rick & Morty API to MongoDB
+    - Pandas transformation (flattening nested JSONs)
+    - Idempotent MySQL loading with ON DUPLICATE KEY UPDATE
+    - Dynamic type detection in column analysis
+    - Dual Profile (MongoDB + MySQL with aligned PK)
+    - Reset with TRUNCATE (not DROP)
+    - 11 columns in MySQL (exceeds minimum of 8)
+    """,
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    debug=False
+)
+
+
+# =================== MIDDLEWARES ===================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:8080", "http://localhost:8000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0"],
+)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Middleware to log all HTTP requests."""
+    start_time = time.time()
+    
+    logger.debug(f"-> {request.method} {request.url.path}")
+    
+    response = await call_next(request)
+    
+    duration = time.time() - start_time
+    
+    log_level = logging.INFO if response.status_code < 400 else logging.WARNING
+    logger.log(
+        log_level, 
+        f"{request.method} {request.url.path} - {response.status_code} - {duration:.3f}s"
+    )
+    
+    response.headers["X-Response-Time"] = f"{duration:.3f}s"
+    response.headers["X-Service-Version"] = app.version
+    
+    return response
