@@ -85,3 +85,64 @@ def transform_and_load() -> int:
     processed_records = _load_to_mysql_idempotent(df)
     
     return processed_records
+
+def _transform_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Flattens Rick & Morty JSON for SQL."""
+    
+    direct_columns = {
+        "id": "id_personaje",
+        "name": "nombre",
+        "status": "estado",
+        "species": "especie",
+        "gender": "genero",
+        "type": "tipo"
+    }
+    
+    result_df = pd.DataFrame()
+    for source, destination in direct_columns.items():
+        if source in df.columns:
+            result_df[destination] = df[source]
+        else:
+            result_df[destination] = None
+    
+    if "origin" in df.columns:
+        result_df["origen_nombre"] = df["origin"].apply(
+            lambda x: x.get("name", "Unknown") if isinstance(x, dict) else "Unknown"
+        )
+    else:
+        result_df["origen_nombre"] = "Unknown"
+    
+    if "location" in df.columns:
+        result_df["ubicacion_nombre"] = df["location"].apply(
+            lambda x: x.get("name", "Unknown") if isinstance(x, dict) else "Unknown"
+        )
+    else:
+        result_df["ubicacion_nombre"] = "Unknown"
+    
+    if "episode" in df.columns:
+        result_df["total_episodios"] = df["episode"].apply(
+            lambda x: len(x) if isinstance(x, list) else 0
+        )
+    else:
+        result_df["total_episodios"] = 0
+    
+    if "tipo" in result_df.columns:
+        result_df["tiene_tipo_especial"] = result_df["tipo"].apply(
+            lambda x: bool(x and x.strip()) if pd.notna(x) else False
+        )
+    else:
+        result_df["tiene_tipo_especial"] = False
+    
+    result_df["fecha_extraccion"] = date.today()
+    
+    result_df = result_df.fillna({
+        "nombre": "Unknown",
+        "estado": "unknown",
+        "especie": "Unknown",
+        "genero": "unknown",
+        "tipo": "",
+        "origen_nombre": "Unknown",
+        "ubicacion_nombre": "Unknown"
+    })
+    
+    return result_df
