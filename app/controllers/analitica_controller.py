@@ -10,3 +10,18 @@ async def analyze_column(name: str):
     """
     result = analitica_service.analyze_column(name)
     return result
+
+@router.get("/profile/{id}")
+async def dual_profile(id: int):
+    """
+    Endpoint E: Dual Profile
+    """
+    result = analitica_service.get_dual_profile(id)
+    
+    if result is None:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Record with ID {id} not found in any database"
+        )
+    
+    return result
