@@ -262,3 +262,54 @@ def get_summary_statistics() -> dict:
         "status_distribution": {str(k): int(v) for k, v in status_dist.items()},
         "top_species": {str(k): int(v) for k, v in species_dist.items()}
     }
+
+def get_analysis_by_status() -> dict:
+    """
+    Service 4: Get detailed analysis by character status.
+    Returns data with English status names.
+    """
+    df = load_df_from_sql()
+    
+    if df.empty:
+        return {}
+    
+    result = {}
+    for status in df["estado"].unique():
+        status_df = df[df["estado"] == status]
+        result[status] = {
+            "count": int(len(status_df)),
+            "percentage": round(len(status_df) / len(df) * 100, 2),
+            "avg_episodes": round(status_df["total_episodios"].mean(), 2),
+            "unique_species": int(status_df["especie"].nunique()),
+            "unique_genders": int(status_df["genero"].nunique())
+        }
+    
+    return result
+
+
+def get_analysis_by_species(limit: int = 10) -> dict:
+    """
+    Service 5: Get detailed analysis by species.
+    Returns data with English species names.
+    """
+    df = load_df_from_sql()
+    
+    if df.empty:
+        return {}
+    
+    species_counts = df["especie"].value_counts().head(limit)
+    
+    result = {}
+    for species, count in species_counts.items():
+        species_df = df[df["especie"] == species]
+        result[species] = {
+            "count": int(count),
+            "percentage": round(count / len(df) * 100, 2),
+            "alive": int(len(species_df[species_df["estado"] == "Alive"])),
+            "dead": int(len(species_df[species_df["estado"] == "Dead"])),
+            "unknown": int(len(species_df[species_df["estado"] == "unknown"])),
+            "avg_episodes": round(species_df["total_episodios"].mean(), 2),
+            "has_special_type": bool(species_df["tiene_tipo_especial"].any())
+        }
+    
+    return result
