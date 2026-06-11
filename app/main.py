@@ -191,3 +191,115 @@ async def global_exception_handler(request: Request, exc: Exception):
 # =================== ROUTERS ===================
 app.include_router(etl_controller.router)
 app.include_router(analitica_controller.router)
+
+# =================== ROOT ENDPOINTS ===================
+
+@app.get("/", tags=["Root"])
+async def root():
+    """Root endpoint with service information"""
+    return {
+        "status": "healthy",
+        "service": app.title,
+        "version": app.version,
+        "documentation": {
+            "swagger_ui": "/docs",
+            "redoc": "/redoc"
+        },
+        "endpoints": {
+            "extract": "POST /api/v1/etl/extract",
+            "transform": "POST /api/v1/etl/transform",
+            "reset": "DELETE /api/v1/etl/reset",
+            "column_analysis": "GET /api/v1/analytics/column/{name}",
+            "dual_profile": "GET /api/v1/profile/{id}"
+        },
+        "database_info": {
+            "mongodb": {
+                "database": Config.MONGO_DB,
+                "collection": Config.MONGO_COLLECTION
+            },
+            "mysql": {
+                "database": Config.MYSQL_DB,
+                "table": "personajes_master"
+            }
+        },
+        "api_source": Config.RICK_MORTY_API_BASE_URL
+    }
+
+
+@app.get("/health", tags=["Root"])
+async def health_check():
+    """Health check endpoint for monitoring"""
+    mongo_status = "connected"
+    mysql_status = "connected"
+    
+    try:
+        mongo_collection.find_one()
+    except Exception as e:
+        mongo_status = f"error: {str(e)}"
+    
+    try:
+        with mysql_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        mysql_status = f"error: {str(e)}"
+    
+    return {
+        "status": "alive",
+        "timestamp": time.time(),
+        "service": app.title,
+        "version": app.version,
+        "dependencies": {
+            "mongodb": mongo_status,
+            "mysql": mysql_status
+        }
+    }
+
+
+@app.get("/info", tags=["Root"])
+async def system_info():
+    """System and environment information"""
+    return {
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "environment": "development",
+        "debug_mode": app.debug,
+        "api_version": app.version,
+        "table_columns": [
+            "id_personaje (PK)",
+            "nombre", "estado", "especie", "genero", "tipo",
+            "origen_nombre", "ubicacion_nombre",
+            "total_episodios", "tiene_tipo_especial",
+            "fecha_extraccion", "is_active", "last_updated", "created_at"
+        ]
+    }
+
+
+@app.get("/metrics", tags=["Root"])
+async def basic_metrics():
+    """Basic system metrics"""
+    from app.services import analitica_service
+    
+    try:
+        df = analitica_service.load_df_from_sql()
+        return {
+            "total_records": len(df),
+            "available_columns": list(df.columns),
+            "last_extraction": df["fecha_extraccion"].max() if not df.empty else None
+        }
+    except Exception as e:
+        return {
+            "total_records": 0,
+            "error": str(e)
+        }
+
+
+# =================== MAIN (for direct execution) ===================
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
