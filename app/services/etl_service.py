@@ -146,3 +146,29 @@ def _transform_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     })
     
     return result_df
+
+def _load_to_mysql_idempotent(df: pd.DataFrame) -> int:
+    """Loads DataFrame to MySQL using INSERT ... ON DUPLICATE KEY UPDATE."""
+    table_name = PersonajeDB.__tablename__
+    
+    columns = list(df.columns)
+    update_columns = [col for col in columns if col != "id_personaje"]
+    
+    placeholders = ', '.join([f':{col}' for col in columns])
+    update_clause = ', '.join([f'{col} = :{col}' for col in update_columns])
+    
+    final_query = f"""
+        INSERT INTO {table_name} ({', '.join(columns)}) 
+        VALUES ({placeholders})
+        ON DUPLICATE KEY UPDATE {update_clause}
+    """
+    
+    records = 0
+    with mysql_engine.connect() as conn:
+        for _, row in df.iterrows():
+            values = {col: row[col] for col in columns}
+            result = conn.execute(text(final_query), values)
+            records += 1 if result.rowcount in (1, 2) else 0
+        conn.commit()
+    
+    return records
