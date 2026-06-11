@@ -208,3 +208,57 @@ def get_dual_profile(character_id: int) -> dict:
         return None
     
     return result
+# =================== ADDITIONAL ANALYTICS ===================
+
+def get_summary_statistics() -> dict:
+    """
+    Service 3: Get comprehensive summary statistics for the entire dataset.
+    Returns data with English column names.
+    """
+    df = load_df_from_sql()
+    
+    if df.empty:
+        return {
+            "total_characters": 0,
+            "unique_species": 0,
+            "unique_statuses": 0,
+            "avg_episodes": 0,
+            "max_episodes": 0,
+            "date_range": {"from": None, "to": None},
+            "status_distribution": {},
+            "top_species": {}
+        }
+    
+    with mysql_engine.connect() as conn:
+        result = conn.execute(text(f"""
+            SELECT 
+                COUNT(*) as total_characters,
+                COUNT(DISTINCT especie) as unique_species,
+                COUNT(DISTINCT estado) as unique_statuses,
+                AVG(total_episodios) as avg_episodes,
+                MAX(total_episodios) as max_episodes,
+                MIN(fecha_extraccion) as first_extraction,
+                MAX(fecha_extraccion) as last_extraction
+            FROM {PersonajeDB.__tablename__}
+        """))
+        stats = dict(result.fetchone()._mapping)
+    
+    # Status distribution (convert to English)
+    status_dist = df["estado"].value_counts().to_dict()
+    
+    # Species distribution (top 5)
+    species_dist = df["especie"].value_counts().head(5).to_dict()
+    
+    return {
+        "total_characters": stats["total_characters"] or 0,
+        "unique_species": stats["unique_species"] or 0,
+        "unique_statuses": stats["unique_statuses"] or 0,
+        "avg_episodes": round(stats["avg_episodes"], 2) if stats["avg_episodes"] else 0,
+        "max_episodes": stats["max_episodes"] or 0,
+        "date_range": {
+            "from": str(stats["first_extraction"]) if stats["first_extraction"] else None,
+            "to": str(stats["last_extraction"]) if stats["last_extraction"] else None
+        },
+        "status_distribution": {str(k): int(v) for k, v in status_dist.items()},
+        "top_species": {str(k): int(v) for k, v in species_dist.items()}
+    }
