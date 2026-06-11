@@ -67,3 +67,21 @@ def _fetch_from_rick_and_morty_api(quantity: int) -> List[Dict[str, Any]]:
         page += 1
     
     return all_characters[:quantity]
+
+# =================== TRANSFORMATION AND LOADING (MySQL) ===================
+
+def transform_and_load() -> int:
+    """Reads from MongoDB, transforms with Pandas and loads to MySQL."""
+    raw_data = list(mongo_collection.find({}, {"_id": 0}))
+    if not raw_data:
+        print("No data in MongoDB. Run /extract first")
+        return 0
+    
+    df = pd.DataFrame(raw_data)
+    df = _transform_dataframe(df)
+    
+    Base.metadata.create_all(bind=mysql_engine)
+    
+    processed_records = _load_to_mysql_idempotent(df)
+    
+    return processed_records
