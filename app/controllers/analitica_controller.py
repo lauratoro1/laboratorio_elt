@@ -30,3 +30,8 @@ async def dual_profile(id: int):
 async def get_summary_statistics():
     """Get summary statistics"""
     return analitica_service.get_summary_statistics()
+
+@router.get("/analytics/status")
+async def get_status_analysis():
+    """Get analysis by status"""
+    return analitica_service.get_analysis_by_status()
