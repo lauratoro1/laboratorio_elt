@@ -40,3 +40,30 @@ def extract_and_save_raw(quantity: int) -> int:
             saved_records += 1
             
     return saved_records
+
+def _fetch_from_rick_and_morty_api(quantity: int) -> List[Dict[str, Any]]:
+    """Handles pagination for Rick & Morty API."""
+    all_characters = []
+    page = 1
+    base_url = f"{Config.RICK_MORTY_API_BASE_URL}/character"
+    
+    while len(all_characters) < quantity:
+        url = f"{base_url}?page={page}"
+        
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        
+        items = data.get("results", [])
+        if not items:
+            break
+        
+        all_characters.extend(items)
+        
+        info = data.get("info", {})
+        if not info.get("next"):
+            break
+        
+        page += 1
+    
+    return all_characters[:quantity]
